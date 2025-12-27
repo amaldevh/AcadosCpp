@@ -2,7 +2,6 @@
 
 An object-oriented C++ wrapper around [acados](https://github.com/acados/acados) OCP (Optimal Control Problem) and Sim (Simulation) solvers, with automatic code generation and Python bindings.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
@@ -57,7 +56,7 @@ This is particularly useful for Model Predictive Control (MPC) applications in r
 
 4. **Clone this repository**:
    ```bash
-   git clone https://github.com/yourusername/AcadosCpp.git
+   git clone https://github.com/amaldevh/AcadosCpp.git
    cd AcadosCpp
    ```
 
@@ -230,7 +229,7 @@ After running `generate_cpp_ocp.py`, the following libraries are created:
 The generated code is optimized for real-time performance. Example benchmark on a quadrotor MPC problem (13 states, 4 controls, N=10 horizon):
 
 - **C++ closed-loop**: ~5000+ Hz
-- **Python bindings**: ~2000+ Hz
+- **Python bindings**: ~4000+ Hz
 
 ## Troubleshooting
 
@@ -254,9 +253,6 @@ The generated code is optimized for real-time performance. Example benchmark on 
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
@@ -271,7 +267,7 @@ If you use this project in your research, please consider citing:
 ```bibtex
 @software{acadoscpp,
   title = {AcadosCpp: Object-Oriented C++ Wrapper for acados},
-  url = {https://github.com/yourusername/AcadosCpp},
+  url = {https://github.com/amaldevh/AcadosCpp},
   year = {2024}
 }
 ```
