@@ -1,0 +1,43 @@
+// standard
+#include <stdio.h>
+#include <stdlib.h>
+// acados
+#include "acados/utils/print.h"
+#include "acados/utils/math.h"
+#include "acados_c/sim_interface.h"
+#include "acados_sim_solver_{{model_name | lower}}.h"
+#include <vector>
+#include <stdexcept>
+
+#define NX     {{model_name | upper}}_NX
+#define NZ     {{model_name | upper}}_NZ
+#define NU     {{model_name | upper}}_NU
+#define NP     {{model_name | upper}}_NP
+
+class ModelSim {
+public:
+    
+
+    ModelSim();
+
+    /** @brief sets the x0 , initial state for sim state */
+    void set_x0(std::vector<double>& init_state);
+
+    void set_dt(double dt);
+    const std::vector<double>& step(const std::vector<double>& uref);
+    ~ModelSim();
+private:
+    {{model_name | lower}}_sim_solver_capsule *acados_sim_capsule_;
+    int status_;
+
+    sim_config *sim_config_;
+    void *sim_dims_;
+    sim_in *sim_in_;
+    sim_out *sim_out_;
+
+    std::vector<double> x_curr_=std::vector<double>(NX,  0.0);
+    std::vector<double> u_curr_=std::vector<double>(NU,  0.0);
+    double dt_ = 0.001;
+
+};
+

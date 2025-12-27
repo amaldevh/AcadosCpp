@@ -1,0 +1,15 @@
+// pybind11
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+#include "model_sim.hh"
+
+namespace py = pybind11;
+PYBIND11_MODULE({{model_name | lower}}_sim_py, m){
+    py::class_<ModelSim>(m, "ModelSim")
+        .def(py::init<>())
+        .def("set_x0", &ModelSim::set_x0, py::call_guard<py::gil_scoped_release>())
+        .def("step", &ModelSim::step, py::call_guard<py::gil_scoped_release>())
+        .def("set_dt", &ModelSim::set_dt, py::call_guard<py::gil_scoped_release>());        
+}
+

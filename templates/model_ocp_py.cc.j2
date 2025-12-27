@@ -1,0 +1,21 @@
+// pybind11
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+#include "model_ocp.hh"
+
+namespace py = pybind11;
+PYBIND11_MODULE({{model_name | lower}}_ocp_py, m){
+    py::class_<ModelOcp>(m, "ModelOcp")
+        .def(py::init<>())
+        .def("set_x0", &ModelOcp::set_x0, py::call_guard<py::gil_scoped_release>())
+        .def("set_xinit", &ModelOcp::set_xinit, py::call_guard<py::gil_scoped_release>())
+        .def("set_uinit", &ModelOcp::set_uinit, py::call_guard<py::gil_scoped_release>())
+        .def("set_yref", &ModelOcp::set_yref, py::call_guard<py::gil_scoped_release>())
+        .def("solve",
+            static_cast<const std::vector<double>&(ModelOcp::*)()>(&ModelOcp::solve), py::call_guard<py::gil_scoped_release>())
+        .def("solve",
+            static_cast<const std::vector<double>&(ModelOcp::*)(std::vector<double>&, const std::vector<double>&)>(&ModelOcp::solve), py::call_guard<py::gil_scoped_release>());
+        
+}
+
