@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Amal Dev Haridevan
+// SPDX-License-Identifier: MIT
+
 #include <iostream>
 #include <fstream>
 #include <chrono>

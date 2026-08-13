@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Amal Dev Haridevan
+# SPDX-License-Identifier: MIT
+
 """Generate and optionally build stage-aware C++/Python acados wrappers."""
 
 import argparse

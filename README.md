@@ -150,6 +150,5 @@ RTI phases for a solver generated with a different NLP method.
 | `state_trajectory`, `control_trajectory` | Cached optimal solution |
 | `status`, `solve_time`, `sqp_iterations`, `kkt_norm_inf` | Solver diagnostics |
 
-See [examples/control_loop.py](examples/control_loop.py) and
-[examples/cpp_control_loop.cc](examples/cpp_control_loop.cc) for complete
-closed-loop examples.
+See the [examples guide](examples/README.md) for complete Python and C++
+closed-loop instructions.

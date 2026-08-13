@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Amal Dev Haridevan
+# SPDX-License-Identifier: MIT
+
 ACADOS_ROOT=$(shell echo $$ACADOS_ROOT)
 LDFLAGS=
 LDFLAGS+= -L $(shell pwd)/cpp_quadrotor_ocp

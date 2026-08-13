@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Amal Dev Haridevan
+# SPDX-License-Identifier: MIT
+
 """
 Generate acados C code for the quadrotor NMPC controller.
 This script creates the OCP solver code that will be used by the C++ implementation.
@@ -137,11 +140,10 @@ def acados_ocp_solver(mass: float, gravity: np.ndarray, I: np.ndarray,
 
 if __name__ == "__main__":
     # Quadrotor parameters (match the C++ implementation)
-    gravity = np.array([0.0, 0.0, -9.82])
-    mass = 1.53
-    inertia = np.array([[0.0147209, 0, 0], 
-                        [0, 0.0169101, 0], 
-                        [0, 0, 0.029448]])
+    # Keep these values aligned with control_loop.py and cpp_control_loop.cc.
+    gravity = np.array([0.0, 0.0, -9.81])
+    mass = 1.0
+    inertia = np.diag([0.005, 0.005, 0.009])
     
     print("=" * 60)
     print("Generating acados C code for NMPC controller")
