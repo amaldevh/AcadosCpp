@@ -1,3 +1,4 @@
+*.json
 acados_ocp.json
 *.lib
 *.a

@@ -6,6 +6,31 @@ The wrapper is intended for nonlinear model predictive control (NMPC), where
 the measured state, horizon references, parameters, and warm start are distinct
 pieces of solver data.
 
+## Motivation
+
+acados generates highly optimized C code for a specific model and optimal
+control problem. That generated C API is excellent for performance, but using
+it directly can couple an application to model-specific symbols, dimensions,
+solver lifecycle calls, and data-update details. Integrating it into a larger
+C++ robotics or control stack therefore takes additional glue code, which may
+need to be revised whenever the model or OCP formulation changes.
+
+AcadosCpp puts a stable, unified C++ and Python interface around the generated
+solver. Downstream applications interact with `ModelOcp` and `ModelSim` rather
+than directly managing generated C capsules and acados internals. The intended
+workflow is:
+
+1. define or change the model and OCP in Python;
+2. regenerate the acados solver and AcadosCpp wrapper;
+3. recompile and relink the application.
+
+The control-loop structure and wrapper API remain the same across models and
+OCP configurations. Application data must still match the newly generated
+dimensions and cost layout, and the wrapper validates those assumptions at the
+API boundary. This makes the generated controller much closer to a plug-and-play
+component for downstream applications without hiding the stage-wise structure
+needed by NMPC.
+
 ## What the wrapper supports
 
 - The measured state constrains only OCP stage 0.
