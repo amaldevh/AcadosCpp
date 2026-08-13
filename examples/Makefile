@@ -5,7 +5,7 @@ LDFLAGS+= -L$(ACADOS_ROOT)/lib
 LDFLAGS+= -Wl,--disable-new-dtags,-rpath,$(shell pwd)/cpp_quadrotor_ocp
 LDFLAGS+= -Wl,--disable-new-dtags,-rpath,$(ACADOS_ROOT)/lib
 LDLIBS=
-LDLIBS+= -lquadrotor_ocp -lquadrotor_ocp_fncs -lquadrotor_sim
+LDLIBS+= -lquadrotor_ocp -lacados_solver_quadrotor -lquadrotor_sim
 LDLIBS+= -lacados
 LDLIBS+= -lhpipm -lblasfeo -lm
 
@@ -18,5 +18,5 @@ CXXFLAGS+= -I$(ACADOS_ROOT)/include/blasfeo/include
 CXXFLAGS+= -I$(ACADOS_ROOT)/include/hpipm/include
 
 # compile control loop
-control_loop: control_loop
-	$(CXX) cpp_control_loop.cc -o control_loop $(CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) $(LDLIBS)
+control_loop: cpp_control_loop.cc
+	$(CXX) cpp_control_loop.cc -o control_loop $(CXXFLAGS) $(LDFLAGS) $(LDLIBS)

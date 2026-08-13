@@ -10,6 +10,6 @@ PYBIND11_MODULE({{model_name | lower}}_sim_py, m){
         .def(py::init<>())
         .def("set_x0", &ModelSim::set_x0, py::call_guard<py::gil_scoped_release>())
         .def("step", &ModelSim::step, py::call_guard<py::gil_scoped_release>())
-        .def("set_dt", &ModelSim::set_dt, py::call_guard<py::gil_scoped_release>());        
+        .def("set_dt", &ModelSim::set_dt, py::call_guard<py::gil_scoped_release>())
+        .def_property_readonly("state", &ModelSim::state);
 }
-

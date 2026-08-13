@@ -115,7 +115,7 @@ def acados_ocp_solver(mass: float, gravity: np.ndarray, I: np.ndarray,
 
     # set prediction horizon
     ocp.solver_options.N_horizon = 10
-    ocp.solver_options.tf = 1000e-3/5  # 0.5 seconds horizon
+    ocp.solver_options.tf = 1000e-3/5  # 0.2 second horizon
     ocp.solver_options.qp_solver_iter_max = 50
     # set ocp options
     ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     
     # Generate the code
     output_dir = '/tmp/c_generated_code_ocp'
-    ocp_solver, N_horizon = acados_ocp_solver(mass, gravity, inertia, output_dir)
+    ocp_solver = acados_ocp_solver(mass, gravity, inertia, output_dir)
     
     print("\n" + "=" * 60)
     print("Code generation complete!")

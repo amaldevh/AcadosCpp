@@ -1,43 +1,34 @@
-// standard
-#include <stdio.h>
-#include <stdlib.h>
-// acados
-#include "acados/utils/print.h"
-#include "acados/utils/math.h"
+#pragma once
+
+#include <vector>
+
 #include "acados_c/sim_interface.h"
 #include "acados_sim_solver_{{model_name | lower}}.h"
-#include <vector>
-#include <stdexcept>
-
-#define NX     {{model_name | upper}}_NX
-#define NZ     {{model_name | upper}}_NZ
-#define NU     {{model_name | upper}}_NU
-#define NP     {{model_name | upper}}_NP
 
 class ModelSim {
 public:
-    
+    static constexpr int nx = {{model_name | upper}}_NX;
+    static constexpr int nu = {{model_name | upper}}_NU;
 
     ModelSim();
+    ~ModelSim() noexcept;
 
-    /** @brief sets the x0 , initial state for sim state */
-    void set_x0(std::vector<double>& init_state);
+    ModelSim(const ModelSim&) = delete;
+    ModelSim& operator=(const ModelSim&) = delete;
 
+    void set_x0(const std::vector<double>& state);
     void set_dt(double dt);
-    const std::vector<double>& step(const std::vector<double>& uref);
-    ~ModelSim();
+    const std::vector<double>& step(const std::vector<double>& control);
+    const std::vector<double>& state() const noexcept { return x_curr_; }
+
 private:
-    {{model_name | lower}}_sim_solver_capsule *acados_sim_capsule_;
-    int status_;
-
-    sim_config *sim_config_;
-    void *sim_dims_;
-    sim_in *sim_in_;
-    sim_out *sim_out_;
-
-    std::vector<double> x_curr_=std::vector<double>(NX,  0.0);
-    std::vector<double> u_curr_=std::vector<double>(NU,  0.0);
+    {{model_name | lower}}_sim_solver_capsule* acados_sim_capsule_ = nullptr;
+    int status_ = 0;
+    sim_config* sim_config_ = nullptr;
+    void* sim_dims_ = nullptr;
+    sim_in* sim_in_ = nullptr;
+    sim_out* sim_out_ = nullptr;
+    std::vector<double> x_curr_ = std::vector<double>(nx, 0.0);
+    std::vector<double> u_curr_ = std::vector<double>(nu, 0.0);
     double dt_ = 0.001;
-
 };
-

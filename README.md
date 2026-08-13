@@ -1,273 +1,155 @@
 # AcadosCpp
 
-An object-oriented C++ wrapper around [acados](https://github.com/acados/acados) OCP (Optimal Control Problem) and Sim (Simulation) solvers, with automatic code generation and Python bindings.
+Stage-aware C++ and pybind11 wrappers around an
+[acados](https://github.com/acados/acados) generated OCP and simulation solver.
+The wrapper is intended for nonlinear model predictive control (NMPC), where
+the measured state, horizon references, parameters, and warm start are distinct
+pieces of solver data.
 
+## What the wrapper supports
 
-## Overview
-
-AcadosCpp streamlines the process of using acados solvers in C++ applications by providing:
-
-- **Automatic C++ wrapper generation** from acados Python-generated C code
-- **Object-oriented interface** (`ModelOcp` and `ModelSim` classes) for clean integration
-- **Python bindings** via pybind11 for rapid prototyping and testing
-- **Jinja2 templates** for customizable code generation
-
-This is particularly useful for Model Predictive Control (MPC) applications in robotics, autonomous systems, and other real-time control scenarios.
-
-## Features
-
-- 🚀 **High Performance**: Leverages acados' efficient solvers (HPIPM, BLASFEO) for real-time MPC
-- 🔧 **Easy Integration**: Simple `ModelOcp::solve()` and `ModelSim::step()` interfaces
-- 🐍 **Python Interoperability**: Generated Python modules for testing and validation
-- 📦 **Automated Build System**: Single command generates and compiles all necessary libraries
-- 🎯 **Flexible Templates**: Jinja2-based templates allow customization of generated code
+- The measured state constrains only OCP stage 0.
+- Running references can differ at every stage and the terminal reference has
+  its own dimension.
+- Model parameters can be updated per stage; global parameters are supported.
+- State and control initial guesses can be set per node or as trajectories.
+- A successful solution is cached and can be shifted one stage for the next
+  NMPC iteration.
+- The complete optimal state/control trajectories and solver statistics are
+  available in C++ and Python.
+- SQP-RTI preparation and feedback phases can be selected explicitly.
+- The build uses the acados-generated Makefile, so source selection is not
+  hardcoded to ERK dynamics or nonlinear least-squares costs.
 
 ## Requirements
 
-### Dependencies
+- acados, with `ACADOS_ROOT` pointing to its installation
+- Python 3.9+
+- a C++17 compiler
+- `jinja2` and `pybind11`; the example also uses `acados_template`, CasADi,
+  NumPy, SciPy, and Matplotlib
 
-- **acados** (with environment variable `ACADOS_ROOT` set)
-- **Python 3.8+**
-- **C++17** compatible compiler (GCC/Clang)
-- **Python packages**:
-  ```
-  acados_template
-  casadi
-  numpy
-  scipy
-  jinja2
-  pybind11
-  ```
+## Generate and build
 
-### Installation
+First generate an OCP solver with `acados_template`, including its simulation
+solver, then run:
 
-1. **Install acados** following the [official installation guide](https://docs.acados.org/installation/index.html)
-
-2. **Set environment variable**:
-   ```bash
-   export ACADOS_ROOT=/path/to/acados
-   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ACADOS_ROOT/lib
-   ```
-
-3. **Install Python dependencies**:
-   ```bash
-   pip install acados_template casadi numpy scipy jinja2 pybind11
-   ```
-
-4. **Clone this repository**:
-   ```bash
-   git clone https://github.com/amaldevh/AcadosCpp.git
-   cd AcadosCpp
-   ```
-
-## Usage
-
-### Quick Start
-
-The workflow consists of two main steps:
-
-1. **Define your OCP in Python** using acados_template
-2. **Generate C++ wrappers** using `generate_cpp_ocp.py`
-
-### Example: Quadrotor MPC
-
-See the complete example in the `examples/` directory.
-
-#### 1. Define the dynamics and OCP (Python)
-
-```python
-import acados_template as at
-import casadi as ca
-import numpy as np
-
-# Define your model dynamics
-ocp = at.AcadosOcp()
-model = ocp.model
-model.name = 'quadrotor'
-model.x = ca.SX.sym('x', 13)  # states
-model.u = ca.SX.sym('u', 4)   # controls
-model.f_expl_expr = your_dynamics(model.x, model.u)
-
-# Configure OCP settings...
-ocp_solver = at.AcadosOcpSolver(ocp)
-```
-
-#### 2. Generate C++ code
-
-```python
-from generate_cpp_ocp import generate_code
-
-generate_code(
-    model_name='quadrotor',
-    c_generated_code_dir='/path/to/acados/generated/code',
-    output_dir='./cpp_quadrotor_ocp'
-)
-```
-
-Or via command line:
 ```bash
-python generate_cpp_ocp.py \
-    --model_name quadrotor \
-    --c_generated_code_dir /tmp/c_generated_code_ocp \
-    --output_dir ./cpp_quadrotor_ocp
+python3 generate_cpp_ocp.py \
+  --model_name quadrotor \
+  --c_generated_code_dir /tmp/c_generated_code_ocp \
+  --output_dir ./examples/cpp_quadrotor_ocp
 ```
 
-#### 3. Use in C++
+Use `--no-build` to render and copy the wrapper without compiling it. This is
+useful when another build system or a cross-compiler owns the final build.
+
+## Standard NMPC loop
+
+For the common least-squares layout `y = [x, u]`, with terminal output
+`y_e = x`, supply one state reference per node and one control reference per
+shooting interval:
 
 ```cpp
-#include "model_ocp.hh"
-#include "model_sim.hh"
+ModelOcp ocp;
+ModelSim plant;
 
-int main() {
-    ModelOcp ocp;
-    ModelSim sim;
-    
-    std::vector<double> x0 = {0.0, 0.0, 0.0, ...};  // Initial state
-    std::vector<double> xdes = {5.0, 5.0, 5.0, ...}; // Desired state
-    
-    sim.set_x0(x0);
-    sim.set_dt(0.001);  // 1ms timestep
-    
-    // Control loop
-    for (int i = 0; i < num_iterations; ++i) {
-        const auto& u_opt = ocp.solve(x0, xdes);
-        x0 = sim.step(u_opt);
-    }
-    
-    return 0;
+std::vector<double> x = /* measured initial state */;
+std::vector<double> u_equilibrium = /* feed-forward input */;
+std::vector<std::vector<double>> xrefs(ocp.horizon() + 1, target);
+std::vector<std::vector<double>> urefs(ocp.horizon(), u_equilibrium);
+
+ocp.initialize_guess(x, u_equilibrium);
+plant.set_x0(x);
+
+while (running) {
+    // The convenience overload shifts the preceding solution, fixes stage 0
+    // to the new measurement, updates all references, and solves.
+    const auto& u = ocp.solve(x, xrefs, urefs);
+    x = plant.step(u);  // replace with the next real state measurement
 }
 ```
 
-#### 4. Compile your application
+For a moving path, rebuild or shift `xrefs` and `urefs` before each call. Never
+set every state node to the measured `x`: that discards the predicted trajectory
+and is a poor warm start after the first solve.
 
-```bash
-cd examples
-make control_loop
-./control_loop
-```
-
-### Using Python Bindings
-
-The generated Python modules can be used for testing:
+The equivalent Python API accepts lists or other pybind11-convertible
+sequences:
 
 ```python
-import sys
-sys.path.append('./cpp_quadrotor_ocp')
-
-from quadrotor_ocp_py import ModelOcp
-from quadrotor_sim_py import ModelSim
-
-ocp = ModelOcp()
-sim = ModelSim()
-
-x0 = [0.0, 0.0, 0.0, ...]
-xdes = [5.0, 5.0, 5.0, ...]
-
-sim.set_x0(x0)
-sim.set_dt(0.001)
-
-u_opt = ocp.solve(x0, xdes)
-x_next = sim.step(u_opt)
+ocp.initialize_guess(x, u_equilibrium)
+while running:
+    u = ocp.solve(x, xrefs, urefs)
+    x = plant.step(u)
 ```
 
-## Project Structure
+## General cost outputs
 
-```
-AcadosCpp/
-├── generate_cpp_ocp.py      # Main code generation script
-├── templates/               # Jinja2 templates for C++ code
-│   ├── model_ocp.cc.j2      # OCP solver implementation
-│   ├── model_ocp.hh.j2      # OCP solver header
-│   ├── model_ocp_py.cc.j2   # Python bindings for OCP
-│   ├── model_sim.cc.j2      # Simulator implementation
-│   ├── model_sim.hh.j2      # Simulator header
-│   └── model_sim_py.cc.j2   # Python bindings for Sim
-└── examples/
-    ├── quadrotor_model.py   # Example: Quadrotor dynamics & OCP setup
-    ├── control_loop.py      # Example: Python closed-loop simulation
-    ├── cpp_control_loop.cc  # Example: C++ closed-loop simulation
-    └── Makefile             # Build configuration for examples
+An acados cost output does not have to equal `[x, u]`. For arbitrary LINEAR_LS,
+NONLINEAR_LS, or EXTERNAL cost definitions, use raw stage references:
+
+```cpp
+ocp.set_yref(0, yref_0);             // length MODEL_NY0
+ocp.set_yref(stage, yref);           // length MODEL_NY, stage 1..N-1
+ocp.set_yref(ocp.horizon(), yref_e); // length MODEL_NYN
 ```
 
-## API Reference
+`set_yref_trajectory()` accepts all `N+1` vectors and validates each stage's
+dimension. The state/control convenience methods reject incompatible cost
+dimensions rather than silently assuming a layout.
 
-### ModelOcp Class
+## Parameters and guesses
 
-| Method | Description |
-|--------|-------------|
-| `ModelOcp()` | Constructor, initializes the acados OCP solver |
-| `set_x0(x0)` | Set initial state constraint |
-| `set_xinit(xinit)` | Set initial guess for state trajectory |
-| `set_uinit(uinit)` | Set initial guess for control trajectory |
-| `set_yref(xref, uref)` | Set reference trajectory for cost function |
-| `solve()` | Solve OCP and return optimal control |
-| `solve(x0, xdes)` | Convenience method: set x0, reference, and solve |
+```cpp
+ocp.set_parameters(stage, p);
+ocp.set_parameter_trajectory(p_horizon); // N+1 parameter vectors
+ocp.set_global_parameters(p_global);
 
-### ModelSim Class
-
-| Method | Description |
-|--------|-------------|
-| `ModelSim()` | Constructor, initializes the acados integrator |
-| `set_x0(x0)` | Set current state |
-| `set_dt(dt)` | Set integration timestep |
-| `step(u)` | Integrate dynamics with control input, return next state |
-
-## Generated Libraries
-
-After running `generate_cpp_ocp.py`, the following libraries are created:
-
-| Library | Description |
-|---------|-------------|
-| `lib<model>_ocp_fncs.so` | Acados-generated C functions |
-| `lib<model>_ocp.so` | C++ OCP wrapper |
-| `lib<model>_sim.so` | C++ Simulation wrapper |
-| `<model>_ocp_py.*.so` | Python OCP module |
-| `<model>_sim_py.*.so` | Python Sim module |
-
-## Performance
-
-The generated code is optimized for real-time performance. Example benchmark on a quadrotor MPC problem (13 states, 4 controls, N=10 horizon):
-
-- **C++ closed-loop**: ~5000+ Hz
-- **Python bindings**: ~4000+ Hz
-
-## Troubleshooting
-
-### Common Issues
-
-1. **`ACADOS_ROOT` not set**
-   ```bash
-   export ACADOS_ROOT=/path/to/acados
-   ```
-
-2. **Library not found at runtime**
-   ```bash
-   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/generated/libs:$ACADOS_ROOT/lib
-   ```
-
-3. **Python module import fails**
-   - Ensure the generated library directory is in `sys.path`
-   - Check that all `.so` files were generated successfully
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-
-## Acknowledgments
-
-- [acados](https://github.com/acados/acados) - The underlying optimal control solver
-- [CasADi](https://web.casadi.org/) - Symbolic framework for automatic differentiation
-- [pybind11](https://github.com/pybind/pybind11) - C++/Python bindings
-
-## Citation
-
-If you use this project in your research, please consider citing:
-
-```bibtex
-@software{acadoscpp,
-  title = {AcadosCpp: Object-Oriented C++ Wrapper for acados},
-  url = {https://github.com/amaldevh/AcadosCpp},
-  year = {2024}
-}
+ocp.set_state_guess(stage, x_guess);
+ocp.set_control_guess(stage, u_guess);
+ocp.set_state_guess(x_guess_horizon);    // N+1 state vectors
+ocp.set_control_guess(u_guess_horizon);  // N control vectors
+ocp.shift_warm_start();
 ```
+
+The older `set_xinit`, `set_uinit`, and two-vector `set_yref` calls remain as
+compatibility helpers. They initialize/apply every appropriate node and should
+normally be used only during controller startup.
+
+## SQP-RTI
+
+With an OCP generated using `nlp_solver_type = "SQP_RTI"`, phase 1 can be run
+before the newest measurement arrives and phase 2 after stage 0 is updated:
+
+```cpp
+ocp.shift_warm_start();
+ocp.set_reference_trajectory(xrefs, urefs);
+ocp.set_rti_phase(1);  // preparation
+ocp.solve();
+
+ocp.set_x0(measured_x);
+ocp.set_rti_phase(2);  // feedback
+const auto& u = ocp.solve();
+```
+
+Use phase 0 for a complete RTI iteration in one `solve()` call. Do not select
+RTI phases for a solver generated with a different NLP method.
+
+## Main API
+
+| Method/property | Purpose |
+|---|---|
+| `set_x0(x)` | Fix stage-0 constrained state components |
+| `set_yref(stage, y)` | Set a dimension-checked raw stage reference |
+| `set_reference_trajectory(xs, us)` | Set an `[x,u]` tracking horizon |
+| `set_parameter_trajectory(ps)` | Set stage-varying model parameters |
+| `initialize_guess(x, u)` | Initialize all nodes at controller startup |
+| `shift_warm_start()` | Shift the cached optimal trajectory |
+| `solve()` | Solve the currently configured OCP |
+| `state_trajectory`, `control_trajectory` | Cached optimal solution |
+| `status`, `solve_time`, `sqp_iterations`, `kkt_norm_inf` | Solver diagnostics |
+
+See [examples/control_loop.py](examples/control_loop.py) and
+[examples/cpp_control_loop.cc](examples/cpp_control_loop.cc) for complete
+closed-loop examples.

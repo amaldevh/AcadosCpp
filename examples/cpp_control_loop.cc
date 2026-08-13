@@ -23,12 +23,16 @@ int main(){
                             1.0, 0.0, 0.0, 0.0,
                             0.0, 0.0, 0.0
                         };
+    std::vector<double> u_hover = {9.81, 0.0, 0.0, 0.0};
     double tf = 5.0; // time horizon in seconds
     double dt = 1e-3;
 
     // set initial state and dt for sim
     sim.set_x0(x0);
     sim.set_dt(dt);
+    std::vector<std::vector<double>> xrefs(ocp.horizon() + 1, xdes);
+    std::vector<std::vector<double>> urefs(ocp.horizon(), u_hover);
+    ocp.initialize_guess(x0, u_hover);
     // log in csv format time, x, y, z, vx, vy, vz, qw, qx, qy, qz, wx, wy, wz
     // u0, u1, u2, u3, ..., x_des, y_des, z_des, vx_des, vy_des, vz_des, qw_des, qx_des, qy_des, qz_des, wx_des, wy_des, wz_des
     log_file << "time,x,y,z,vx,vy,vz,qw,qx,qy,qz,wx,wy,wz,";
@@ -53,7 +57,9 @@ int main(){
     auto start_time = std::chrono::high_resolution_clock::now();
     for (int iter = 0; iter < Niters; ++iter) {
         // solve OCP to get optimal control
-        const std::vector<double>& u_opt = ocp.solve(x0, xdes);
+        // Sets the measured stage-0 state, applies the complete reference
+        // horizon, and shifts the previous solution as the warm start.
+        const std::vector<double>& u_opt = ocp.solve(x0, xrefs, urefs);
         x0 = sim.step(u_opt);
         double current_time = iter * dt;
         log_state(current_time, x0, xdes, u_opt);

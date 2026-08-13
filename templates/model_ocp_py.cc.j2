@@ -1,21 +1,77 @@
-// pybind11
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 #include "model_ocp.hh"
 
 namespace py = pybind11;
-PYBIND11_MODULE({{model_name | lower}}_ocp_py, m){
-    py::class_<ModelOcp>(m, "ModelOcp")
-        .def(py::init<>())
-        .def("set_x0", &ModelOcp::set_x0, py::call_guard<py::gil_scoped_release>())
-        .def("set_xinit", &ModelOcp::set_xinit, py::call_guard<py::gil_scoped_release>())
-        .def("set_uinit", &ModelOcp::set_uinit, py::call_guard<py::gil_scoped_release>())
-        .def("set_yref", &ModelOcp::set_yref, py::call_guard<py::gil_scoped_release>())
-        .def("solve",
-            static_cast<const std::vector<double>&(ModelOcp::*)()>(&ModelOcp::solve), py::call_guard<py::gil_scoped_release>())
-        .def("solve",
-            static_cast<const std::vector<double>&(ModelOcp::*)(std::vector<double>&, const std::vector<double>&)>(&ModelOcp::solve), py::call_guard<py::gil_scoped_release>());
-        
-}
 
+PYBIND11_MODULE({{model_name | lower}}_ocp_py, module) {
+    py::class_<ModelOcp>(module, "ModelOcp")
+        .def(py::init<>())
+        .def_property_readonly("horizon", &ModelOcp::horizon)
+        .def_property_readonly_static("nx", [](py::object) { return ModelOcp::nx; })
+        .def_property_readonly_static("nu", [](py::object) { return ModelOcp::nu; })
+        .def_property_readonly_static("np", [](py::object) { return ModelOcp::np; })
+        .def_property_readonly_static("np_global", [](py::object) { return ModelOcp::np_global; })
+        .def("set_x0", &ModelOcp::set_x0, py::call_guard<py::gil_scoped_release>())
+        .def("set_yref",
+             py::overload_cast<int, const std::vector<double>&>(&ModelOcp::set_yref),
+             py::arg("stage"), py::arg("yref"),
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_yref_trajectory", &ModelOcp::set_yref_trajectory,
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_reference", &ModelOcp::set_reference,
+             py::arg("xref"), py::arg("uref"),
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_reference_trajectory", &ModelOcp::set_reference_trajectory,
+             py::arg("xrefs"), py::arg("urefs"),
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_parameters", &ModelOcp::set_parameters,
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_parameter_trajectory", &ModelOcp::set_parameter_trajectory,
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_global_parameters", &ModelOcp::set_global_parameters,
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_rti_phase", &ModelOcp::set_rti_phase,
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_state_guess",
+             py::overload_cast<int, const std::vector<double>&>(&ModelOcp::set_state_guess),
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_state_guess",
+             py::overload_cast<const std::vector<std::vector<double>>&>(&ModelOcp::set_state_guess),
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_control_guess",
+             py::overload_cast<int, const std::vector<double>&>(&ModelOcp::set_control_guess),
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_control_guess",
+             py::overload_cast<const std::vector<std::vector<double>>&>(&ModelOcp::set_control_guess),
+             py::call_guard<py::gil_scoped_release>())
+        .def("initialize_guess", &ModelOcp::initialize_guess,
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_xinit", &ModelOcp::set_xinit,
+             py::call_guard<py::gil_scoped_release>())
+        .def("set_uinit", &ModelOcp::set_uinit,
+             py::call_guard<py::gil_scoped_release>())
+        .def("shift_warm_start", &ModelOcp::shift_warm_start,
+             py::call_guard<py::gil_scoped_release>())
+        .def("solve", py::overload_cast<>(&ModelOcp::solve),
+             py::call_guard<py::gil_scoped_release>())
+        .def("solve",
+             py::overload_cast<const std::vector<double>&,
+                               const std::vector<double>&>(&ModelOcp::solve),
+             py::arg("x0"), py::arg("xref"),
+             py::call_guard<py::gil_scoped_release>())
+        .def("solve",
+             py::overload_cast<const std::vector<double>&,
+                               const std::vector<std::vector<double>>&,
+                               const std::vector<std::vector<double>>&>(&ModelOcp::solve),
+             py::arg("x0"), py::arg("xrefs"), py::arg("urefs"),
+             py::call_guard<py::gil_scoped_release>())
+        .def_property_readonly("state_trajectory", &ModelOcp::state_trajectory)
+        .def_property_readonly("control_trajectory", &ModelOcp::control_trajectory)
+        .def_property_readonly("control", &ModelOcp::control)
+        .def_property_readonly("status", &ModelOcp::status)
+        .def_property_readonly("sqp_iterations", &ModelOcp::sqp_iterations)
+        .def_property_readonly("solve_time", &ModelOcp::solve_time)
+        .def_property_readonly("kkt_norm_inf", &ModelOcp::kkt_norm_inf);
+}
