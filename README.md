@@ -1,40 +1,38 @@
 # AcadosCpp
 
-Stage-aware C++ and pybind11 wrappers around an
+This project provides C++ and pybind11 wrappers that are aware of solver stages.
 [acados](https://github.com/acados/acados) generated OCP and simulation solver.
-The wrapper is intended for nonlinear model predictive control (NMPC), where
-the measured state, horizon references, parameters, and warm start are distinct
-pieces of solver data.
+The wrapper is designed for nonlinear model predictive control (NMPC) applications.
+In NMPC, the measured state, horizon references, parameters, and warm start are handled as separate pieces of solver data.
+Each of these is treated as its own type of solver data.
 
 ## Motivation
 
-acados generates highly optimized C code for a specific model and optimal
-control problem. That generated C API is excellent for performance, but using
-it directly can couple an application to model-specific symbols, dimensions,
-solver lifecycle calls, and data-update details. Integrating it into a larger
-C++ robotics or control stack therefore takes additional glue code, which may
-need to be revised whenever the model or OCP formulation changes.
+acados generates fast, optimized C code for a specific model and optimal control problem.
+The generated C API offers great performance, but using it directly can create challenges.
+Direct use can tie your application to model-specific symbols, dimensions, and other details.
+It also requires handling solver lifecycle calls and data updates. Integrating this into a larger
+C++ robotics or control stack often means writing extra code to connect everything, which may
+need to be updated whenever the model or OCP setup changes.
 
-AcadosCpp puts a stable, unified C++ and Python interface around the generated
-solver. Downstream applications interact with `ModelOcp` and `ModelSim` rather
-than directly managing generated C capsules and acados internals. The intended
-workflow is:
+AcadosCpp provides a stable, unified interface for both C++ and Python around the generated solver.
+With this, applications use `ModelOcp` and `ModelSim` instead of working directly with generated C code and acados internals.
+This approach avoids the need to manage C capsules or internal acados details.
+The typical workflow is:
 
 1. define or change the model and OCP in Python;
 2. regenerate the acados solver and AcadosCpp wrapper;
-3. recompile and relink the application.
-
-The control-loop structure and wrapper API remain the same across models and
-OCP configurations. Application data must still match the newly generated
-dimensions and cost layout, and the wrapper validates those assumptions at the
-API boundary. This makes the generated controller much closer to a plug-and-play
-component for downstream applications without hiding the stage-wise structure
-needed by NMPC.
+3. recompile and relink the application. The control loop structure and wrapper API stay the same, no matter which model or OCP configuration you use.
+However, your application data must still match the new dimensions and cost layout from the generated code.
+The wrapper checks these assumptions at the API boundary.
+This makes the generated controller much more like a plug-and-play component for your application.
+At the same time, it does not hide the stage-wise structure needed by NMPC.
+This keeps the flexibility needed for NMPC.
 
 ## What the wrapper supports
 
 - The measured state constrains only OCP stage 0.
-- Running references can differ at every stage and the terminal reference has
+- Running references can differ at every stage, and the terminal reference has
   its own dimension.
 - Model parameters can be updated per stage; global parameters are supported.
 - State and control initial guesses can be set per node or as trajectories.
@@ -66,8 +64,8 @@ python3 generate_cpp_ocp.py \
   --output_dir ./examples/cpp_quadrotor_ocp
 ```
 
-Use `--no-build` to render and copy the wrapper without compiling it. This is
-useful when another build system or a cross-compiler owns the final build.
+You can use `--no-build` to generate and copy the wrapper files without compiling them.
+This is helpful if you use another build system or a cross-compiler for the final build.
 
 ## Standard NMPC loop
 
@@ -95,9 +93,9 @@ while (running) {
 }
 ```
 
-For a moving path, rebuild or shift `xrefs` and `urefs` before each call. Never
+If your path changes, update or shift `xrefs` and `urefs` before each call. Do not
 set every state node to the measured `x`: that discards the predicted trajectory
-and is a poor warm start after the first solve.
+and lead to a poor warm start after the first solve.
 
 The equivalent Python API accepts lists or other pybind11-convertible
 sequences:
@@ -138,9 +136,9 @@ ocp.set_control_guess(u_guess_horizon);  // N control vectors
 ocp.shift_warm_start();
 ```
 
-The older `set_xinit`, `set_uinit`, and two-vector `set_yref` calls remain as
-compatibility helpers. They initialize/apply every appropriate node and should
-normally be used only during controller startup.
+The older `set_xinit`, `set_uinit`, and two-vector `set_yref` methods are still available for compatibility.
+They initialize or apply values to every relevant node and should
+usually only be used when starting the controller.
 
 ## SQP-RTI
 
@@ -175,5 +173,5 @@ RTI phases for a solver generated with a different NLP method.
 | `state_trajectory`, `control_trajectory` | Cached optimal solution |
 | `status`, `solve_time`, `sqp_iterations`, `kkt_norm_inf` | Solver diagnostics |
 
-See the [examples guide](examples/README.md) for complete Python and C++
-closed-loop instructions.
+For full Python and C++ instructions, see the [examples guide](examples/README.md).
+It covers all closed-loop usage details.
