@@ -13,7 +13,8 @@ previous solution.
 | `quadrotor_model.py` | Defines the CasADi dynamics and acados OCP |
 | `control_loop.py` | Generates, builds, and runs the Python-bound controller |
 | `cpp_control_loop.cc` | Runs the same NMPC structure directly from C++ |
-| `Makefile` | Builds the C++ closed-loop executable |
+| `CMakeLists.txt` | Builds the C++ closed-loop executable against stable AcadosCpp targets |
+| `plot_simulation.py` | Plots a CSV log written by the C++ executable |
 
 Generated solver and wrapper files are placed in `cpp_quadrotor_ocp/`.
 
@@ -52,7 +53,7 @@ smaller than an OCP shooting interval.
 
 ## Build and run the C++ closed loop
 
-Generate the acados code and wrappers first:
+Generate the acados CMake project and wrappers first:
 
 ```bash
 python3 quadrotor_model.py
@@ -62,16 +63,29 @@ python3 ../generate_cpp_ocp.py \
   --output_dir "$PWD/cpp_quadrotor_ocp"
 ```
 
-Then compile and run the controller:
+Then configure, compile, and run the controller:
 
 ```bash
-make control_loop
-./control_loop
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DACADOS_CPP_GENERATED_DIR="$PWD/cpp_quadrotor_ocp"
+cmake --build build --parallel
+./build/control_loop
 ```
 
 The executable prints average solve-loop timing and writes
 `simulation_log.csv` with the state, applied control, and desired state at each
 iteration.
+
+Plot the log interactively, or save it for a headless run:
+
+```bash
+python3 plot_simulation.py
+python3 plot_simulation.py --save simulation.png --no-show
+```
+
+`CMakeLists.txt` changes only `ACADOS_CPP_GENERATED_DIR` when selecting another
+generated solver. Application targets always link `AcadosCpp::ocp` and
+`AcadosCpp::sim`; model-specific library names, include paths, rpaths, and
+acados dependencies are supplied by the generated CMake project.
 
 ## What happens during one NMPC iteration
 
@@ -127,9 +141,12 @@ Use `set_rti_phase(0)` to return to a complete preparation-and-feedback call.
 
 - If an acados library cannot be loaded, verify `ACADOS_ROOT` and
   `LD_LIBRARY_PATH`.
+- If CMake cannot find the generated project, run the two generation commands
+  above or set `-DACADOS_CPP_GENERATED_DIR=/absolute/path/to/output`.
 - If Python cannot import the generated module, run `control_loop.py` from this
   directory or add `cpp_quadrotor_ocp/` to `PYTHONPATH`.
-- If compilation reports missing Python headers, install the development
-  package for the Python interpreter returned by `python3-config`.
+- If the wrapper build cannot find Python or pybind11, install the development
+  package for the selected Python interpreter and install `pybind11` into that
+  interpreter.
 - Regenerate the wrapper after changing dimensions, costs, constraints, or
   solver options in `quadrotor_model.py`.

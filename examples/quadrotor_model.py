@@ -10,7 +10,6 @@ import acados_template as at
 import numpy as np
 import casadi as ca
 import scipy
-import os
 
 def quadrotor_dynamics():
     """ Defines the quadrotor dynamics using CasADi."""
@@ -128,8 +127,9 @@ def acados_ocp_solver(mass: float, gravity: np.ndarray, I: np.ndarray,
     ocp.solver_options.nlp_solver_type = 'SQP_RTI'
     ocp.solver_options.globalization = 'MERIT_BACKTRACKING'
 
-    ocp.code_export_directory = output_dir
-    ocp_solver = at.AcadosOcpSolver(ocp)
+    ocp.code_gen_opts.code_export_directory = output_dir
+    cmake_builder = at.ocp_get_default_cmake_builder()
+    ocp_solver = at.AcadosOcpSolver(ocp, cmake_builder=cmake_builder)
     
     print(f" Acados C code generated successfully in: {output_dir}")
     print(f"  - Model name: {model.name}")

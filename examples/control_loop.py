@@ -26,7 +26,7 @@ def main():
     model_name = ocp_solver.name
     N_horizon = ocp_solver.N
     output_dir = f"{base_path}/cpp_{model_name}_ocp"
-    c_generated_code_dir = ocp_solver.acados_ocp.code_export_directory
+    c_generated_code_dir = ocp_solver.acados_ocp.code_gen_opts.code_export_directory
     generate_code(model_name, c_generated_code_dir, output_dir)
     print(f"C++ OCP code generated in directory: {output_dir}")
     print(f"Model name: {model_name}, Horizon: {N_horizon}")

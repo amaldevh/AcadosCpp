@@ -41,21 +41,26 @@ This keeps the flexibility needed for NMPC.
 - The complete optimal state/control trajectories and solver statistics are
   available in C++ and Python.
 - SQP-RTI preparation and feedback phases can be selected explicitly.
-- The build uses the acados-generated Makefile, so source selection is not
-  hardcoded to ERK dynamics or nonlinear least-squares costs.
+- The generated wrapper is a CMake subproject with stable `AcadosCpp::ocp` and
+  `AcadosCpp::sim` targets. It retains acados' model-specific CMake source list,
+  so source selection is not hardcoded to ERK dynamics or nonlinear
+  least-squares costs.
 
 ## Requirements
 
 - acados, with `ACADOS_ROOT` pointing to its installation
 - Python 3.9+
+- CMake 3.18+
 - a C++17 compiler
 - `jinja2` and `pybind11`; the example also uses `acados_template`, CasADi,
   NumPy, SciPy, and Matplotlib
 
 ## Generate and build
 
-First generate an OCP solver with `acados_template`, including its simulation
-solver, then run:
+First generate an OCP solver and simulation solver with the CMake builder from
+`acados_template`. 
+
+Then generate and build the wrappers:
 
 ```bash
 python3 generate_cpp_ocp.py \
@@ -66,6 +71,28 @@ python3 generate_cpp_ocp.py \
 
 You can use `--no-build` to generate and copy the wrapper files without compiling them.
 This is helpful if you use another build system or a cross-compiler for the final build.
+The normal build configures CMake with Python bindings enabled and installs the
+resulting libraries and modules in the output directory.
+
+## Use from a CMake application
+
+The generated directory can be added directly to another project. The only
+solver-specific value the downstream build needs is its location:
+
+```cmake
+set(ACADOS_CPP_GENERATED_DIR "/path/to/cpp_my_model_ocp")
+add_subdirectory(
+    "${ACADOS_CPP_GENERATED_DIR}"
+    "${CMAKE_BINARY_DIR}/acados_cpp_generated")
+
+add_executable(my_controller controller.cc)
+target_link_libraries(my_controller PRIVATE AcadosCpp::ocp AcadosCpp::sim)
+```
+
+The target names, wrapper header names (`model_ocp.hh` and `model_sim.hh`),
+include paths, and link dependencies remain unchanged when the generated model
+changes. Set `ACADOS_CPP_BUILD_PYTHON=ON` before `add_subdirectory()` only when
+the downstream build also needs the pybind11 modules.
 
 ## Standard NMPC loop
 
@@ -95,7 +122,7 @@ while (running) {
 
 If your path changes, update or shift `xrefs` and `urefs` before each call. Do not
 set every state node to the measured `x`: that discards the predicted trajectory
-and lead to a poor warm start after the first solve.
+and leads to a poor warm start after the first solve.
 
 The equivalent Python API accepts lists or other pybind11-convertible
 sequences:

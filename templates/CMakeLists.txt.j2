@@ -1,0 +1,79 @@
+{{ project_marker }}
+# Copyright (c) 2026 Amal Dev Haridevan
+# SPDX-License-Identifier: MIT
+
+cmake_minimum_required(VERSION 3.18)
+project({{ model_name }}_acados_cpp LANGUAGES C CXX)
+
+option(ACADOS_CPP_BUILD_PYTHON "Build the pybind11 modules" OFF)
+
+# Prefer the current installation without requiring downstream projects to
+# repeat the include and library paths embedded in an acados export.
+if(DEFINED ENV{ACADOS_ROOT})
+    set(ACADOS_INCLUDE_PATH "$ENV{ACADOS_ROOT}/include" CACHE PATH
+        "Directory containing the acados headers")
+    set(ACADOS_LIB_PATH "$ENV{ACADOS_ROOT}/lib" CACHE PATH
+        "Directory containing the acados libraries")
+endif()
+
+# Ask the model-specific project rendered by acados to build one library that
+# contains its OCP solver, simulation solver, and exact generated source set.
+set(BUILD_ACADOS_SOLVER_LIB ON CACHE BOOL "Build the bundled acados solver" FORCE)
+include("${CMAKE_CURRENT_LIST_DIR}/acados_generated.cmake")
+
+set(_acados_solver_target acados_solver_{{ model_name }})
+if(NOT TARGET ${_acados_solver_target})
+    message(FATAL_ERROR "The acados export did not define ${_acados_solver_target}")
+endif()
+
+function(acados_cpp_configure_target target_name)
+    target_compile_features(${target_name} PUBLIC cxx_std_17)
+    target_include_directories(${target_name} PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
+        ${ACADOS_INCLUDE_PATHS}
+        $<INSTALL_INTERFACE:include>)
+    target_link_directories(${target_name} PUBLIC "${ACADOS_LIB_PATH}")
+    target_link_libraries(${target_name} PRIVATE ${_acados_solver_target})
+    set_target_properties(${target_name} PROPERTIES
+        BUILD_RPATH "${ACADOS_LIB_PATH}"
+        INSTALL_RPATH "$ORIGIN;${ACADOS_LIB_PATH}")
+endfunction()
+
+add_library({{ model_name }}_ocp SHARED model_ocp.cc)
+add_library(AcadosCpp::ocp ALIAS {{ model_name }}_ocp)
+acados_cpp_configure_target({{ model_name }}_ocp)
+
+add_library({{ model_name }}_sim SHARED model_sim.cc)
+add_library(AcadosCpp::sim ALIAS {{ model_name }}_sim)
+acados_cpp_configure_target({{ model_name }}_sim)
+
+install(TARGETS {{ model_name }}_ocp {{ model_name }}_sim
+    LIBRARY DESTINATION .
+    RUNTIME DESTINATION .
+    ARCHIVE DESTINATION .)
+install(FILES model_ocp.hh model_sim.hh DESTINATION include)
+
+if(ACADOS_CPP_BUILD_PYTHON)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" -m pybind11 --cmakedir
+        OUTPUT_VARIABLE _pybind11_cmake_dir
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE _pybind11_result)
+    if(_pybind11_result EQUAL 0)
+        list(PREPEND CMAKE_PREFIX_PATH "${_pybind11_cmake_dir}")
+    endif()
+    find_package(pybind11 CONFIG REQUIRED)
+
+    pybind11_add_module({{ model_name }}_ocp_py MODULE model_ocp_py.cc)
+    target_link_libraries({{ model_name }}_ocp_py PRIVATE {{ model_name }}_ocp)
+    set_target_properties({{ model_name }}_ocp_py PROPERTIES INSTALL_RPATH "$ORIGIN")
+
+    pybind11_add_module({{ model_name }}_sim_py MODULE model_sim_py.cc)
+    target_link_libraries({{ model_name }}_sim_py PRIVATE {{ model_name }}_sim)
+    set_target_properties({{ model_name }}_sim_py PROPERTIES INSTALL_RPATH "$ORIGIN")
+
+    install(TARGETS {{ model_name }}_ocp_py {{ model_name }}_sim_py
+        LIBRARY DESTINATION .
+        RUNTIME DESTINATION .)
+endif()

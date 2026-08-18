@@ -36,25 +36,24 @@ int main(){
     std::vector<std::vector<double>> xrefs(ocp.horizon() + 1, xdes);
     std::vector<std::vector<double>> urefs(ocp.horizon(), u_hover);
     ocp.initialize_guess(x0, u_hover);
-    // log in csv format time, x, y, z, vx, vy, vz, qw, qx, qy, qz, wx, wy, wz
-    // u0, u1, u2, u3, ..., x_des, y_des, z_des, vx_des, vy_des, vz_des, qw_des, qx_des, qy_des, qz_des, wx_des, wy_des, wz_des
+    // Log time, state, input, and desired state in CSV format.
     log_file << "time,x,y,z,vx,vy,vz,qw,qx,qy,qz,wx,wy,wz,";
     for (size_t i = 0; i < u0.size(); ++i) {
         log_file << "u" << i << ",";
     }
     log_file << "x_des,y_des,z_des,vx_des,vy_des,vz_des,qw_des,qx_des,qy_des,qz_des,wx_des,wy_des,wz_des\n";
     auto log_state = [&log_file](double time, const std::vector<double>& x, const std::vector<double>& xdes, const std::vector<double>& u) {
-        log_file << time << ",";
+        log_file << time;
         for (const auto& xi : x) {
-            log_file << xi << ",";
+            log_file << "," << xi;
         }
         for (const auto& ui : u) {
-            log_file << ui << ",";
+            log_file << "," << ui;
         }
         for (const auto& xdi : xdes) {
-            log_file << xdi << ",";
+            log_file << "," << xdi;
         }
-        log_file << "\n";
+        log_file << '\n';
     };
     int Niters = static_cast<int>(tf / dt);
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -64,7 +63,7 @@ int main(){
         // horizon, and shifts the previous solution as the warm start.
         const std::vector<double>& u_opt = ocp.solve(x0, xrefs, urefs);
         x0 = sim.step(u_opt);
-        double current_time = iter * dt;
+        double current_time = (iter + 1) * dt;
         log_state(current_time, x0, xdes, u_opt);
     }
     auto end_time = std::chrono::high_resolution_clock::now();
