@@ -3,6 +3,9 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+{% if vector_type == "eigen" %}
+#include <pybind11/eigen.h>
+{% endif %}
 
 #include "model_ocp.hh"
 
@@ -18,7 +21,7 @@ PYBIND11_MODULE({{model_name | lower}}_ocp_py, module) {
         .def_property_readonly_static("np_global", [](py::object) { return ModelOcp::np_global; })
         .def("set_x0", &ModelOcp::set_x0, py::call_guard<py::gil_scoped_release>())
         .def("set_yref",
-             py::overload_cast<int, const std::vector<double>&>(&ModelOcp::set_yref),
+             py::overload_cast<int, const ModelOcp::Vector&>(&ModelOcp::set_yref),
              py::arg("stage"), py::arg("yref"),
              py::call_guard<py::gil_scoped_release>())
         .def("set_yref_trajectory", &ModelOcp::set_yref_trajectory,
@@ -38,16 +41,16 @@ PYBIND11_MODULE({{model_name | lower}}_ocp_py, module) {
         .def("set_rti_phase", &ModelOcp::set_rti_phase,
              py::call_guard<py::gil_scoped_release>())
         .def("set_state_guess",
-             py::overload_cast<int, const std::vector<double>&>(&ModelOcp::set_state_guess),
+             py::overload_cast<int, const ModelOcp::Vector&>(&ModelOcp::set_state_guess),
              py::call_guard<py::gil_scoped_release>())
         .def("set_state_guess",
-             py::overload_cast<const std::vector<std::vector<double>>&>(&ModelOcp::set_state_guess),
+             py::overload_cast<const ModelOcp::VectorArray&>(&ModelOcp::set_state_guess),
              py::call_guard<py::gil_scoped_release>())
         .def("set_control_guess",
-             py::overload_cast<int, const std::vector<double>&>(&ModelOcp::set_control_guess),
+             py::overload_cast<int, const ModelOcp::Vector&>(&ModelOcp::set_control_guess),
              py::call_guard<py::gil_scoped_release>())
         .def("set_control_guess",
-             py::overload_cast<const std::vector<std::vector<double>>&>(&ModelOcp::set_control_guess),
+             py::overload_cast<const ModelOcp::VectorArray&>(&ModelOcp::set_control_guess),
              py::call_guard<py::gil_scoped_release>())
         .def("initialize_guess", &ModelOcp::initialize_guess,
              py::call_guard<py::gil_scoped_release>())
@@ -60,14 +63,14 @@ PYBIND11_MODULE({{model_name | lower}}_ocp_py, module) {
         .def("solve", py::overload_cast<>(&ModelOcp::solve),
              py::call_guard<py::gil_scoped_release>())
         .def("solve",
-             py::overload_cast<const std::vector<double>&,
-                               const std::vector<double>&>(&ModelOcp::solve),
+             py::overload_cast<const ModelOcp::Vector&,
+                               const ModelOcp::Vector&>(&ModelOcp::solve),
              py::arg("x0"), py::arg("xref"),
              py::call_guard<py::gil_scoped_release>())
         .def("solve",
-             py::overload_cast<const std::vector<double>&,
-                               const std::vector<std::vector<double>>&,
-                               const std::vector<std::vector<double>>&>(&ModelOcp::solve),
+             py::overload_cast<const ModelOcp::Vector&,
+                               const ModelOcp::VectorArray&,
+                               const ModelOcp::VectorArray&>(&ModelOcp::solve),
              py::arg("x0"), py::arg("xrefs"), py::arg("urefs"),
              py::call_guard<py::gil_scoped_release>())
         .def_property_readonly("state_trajectory", &ModelOcp::state_trajectory)

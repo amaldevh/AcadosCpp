@@ -63,6 +63,14 @@ python3 ../generate_cpp_ocp.py \
   --output_dir "$PWD/cpp_quadrotor_ocp"
 ```
 
+This uses the default `std::vector<double>` interface. Add
+`--vector_type eigen` to generate an `Eigen::VectorXd` interface instead.
+Eigen3 must then be available to CMake; the generated targets propagate
+`Eigen3::Eigen` to this example automatically. The C++ loop uses the generated
+`ModelOcp::Vector` and `ModelOcp::VectorArray` aliases, so no source changes are
+needed when switching modes. The scalar type remains `double` in both modes to
+match acados.
+
 Then configure, compile, and run the controller:
 
 ```bash
@@ -92,8 +100,8 @@ acados dependencies are supplied by the generated CMake project.
 The example initializes the solver only once:
 
 ```cpp
-std::vector<std::vector<double>> xrefs(ocp.horizon() + 1, xdes);
-std::vector<std::vector<double>> urefs(ocp.horizon(), u_hover);
+ModelOcp::VectorArray xrefs(ocp.horizon() + 1, xdes);
+ModelOcp::VectorArray urefs(ocp.horizon(), u_hover);
 ocp.initialize_guess(x0, u_hover);
 ```
 

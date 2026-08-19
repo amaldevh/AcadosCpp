@@ -41,6 +41,8 @@ This keeps the flexibility needed for NMPC.
 - The complete optimal state/control trajectories and solver statistics are
   available in C++ and Python.
 - SQP-RTI preparation and feedback phases can be selected explicitly.
+- Generated C++ interfaces can use either `std::vector<double>` (the default)
+  or `Eigen::VectorXd` without changing the solver methods.
 - The generated wrapper is a CMake subproject with stable `AcadosCpp::ocp` and
   `AcadosCpp::sim` targets. It retains acados' model-specific CMake source list,
   so source selection is not hardcoded to ERK dynamics or nonlinear
@@ -52,6 +54,7 @@ This keeps the flexibility needed for NMPC.
 - Python 3.9+
 - CMake 3.18+
 - a C++17 compiler
+- Eigen3 when generating Eigen-based wrappers
 - `jinja2` and `pybind11`; the example also uses `acados_template`, CasADi,
   NumPy, SciPy, and Matplotlib
 
@@ -73,6 +76,35 @@ You can use `--no-build` to generate and copy the wrapper files without compilin
 This is helpful if you use another build system or a cross-compiler for the final build.
 The normal build configures CMake with Python bindings enabled and installs the
 resulting libraries and modules in the output directory.
+
+### Select the C++ vector type
+
+The default `--vector_type stl` keeps the existing `std::vector<double>` API.
+To generate an Eigen interface instead, pass:
+
+```bash
+python3 generate_cpp_ocp.py \
+  --model_name quadrotor \
+  --c_generated_code_dir /tmp/c_generated_code_ocp \
+  --output_dir ./examples/cpp_quadrotor_ocp \
+  --vector_type eigen
+```
+
+`--vector-type` is accepted as an equivalent spelling. The programmatic API
+uses the same default and adds the option after the existing arguments:
+
+```python
+generate_code(model_name, c_export, output, vector_type="eigen")
+```
+
+Both modes use `double`, matching the generated acados C API. The generated
+classes expose `ModelOcp::Vector`, `ModelOcp::VectorArray`, and
+`ModelSim::Vector` aliases so application code can be independent of the
+selected representation. `VectorArray` is a `std::vector` of the selected
+one-dimensional vector type. Eigen mode adds a public `Eigen3::Eigen` CMake
+dependency, which is propagated by `AcadosCpp::ocp` and `AcadosCpp::sim`.
+Python accepts compatible sequences in either mode. Returned vectors are
+Python lists in STL mode and NumPy arrays in Eigen mode.
 
 ## Use from a CMake application
 
@@ -104,10 +136,10 @@ shooting interval:
 ModelOcp ocp;
 ModelSim plant;
 
-std::vector<double> x = /* measured initial state */;
-std::vector<double> u_equilibrium = /* feed-forward input */;
-std::vector<std::vector<double>> xrefs(ocp.horizon() + 1, target);
-std::vector<std::vector<double>> urefs(ocp.horizon(), u_equilibrium);
+ModelOcp::Vector x = /* measured initial state */;
+ModelOcp::Vector u_equilibrium = /* feed-forward input */;
+ModelOcp::VectorArray xrefs(ocp.horizon() + 1, target);
+ModelOcp::VectorArray urefs(ocp.horizon(), u_equilibrium);
 
 ocp.initialize_guess(x, u_equilibrium);
 plant.set_x0(x);

@@ -4,12 +4,21 @@
 #pragma once
 
 #include <vector>
+{% if vector_type == "eigen" %}
+#include <Eigen/Core>
+{% endif %}
 
 #include "acados_c/sim_interface.h"
 #include "acados_sim_solver_{{model_name | lower}}.h"
 
 class ModelSim {
 public:
+{% if vector_type == "eigen" %}
+    using Vector = Eigen::VectorXd;
+{% else %}
+    using Vector = std::vector<double>;
+{% endif %}
+
     static constexpr int nx = {{model_name | upper}}_NX;
     static constexpr int nu = {{model_name | upper}}_NU;
 
@@ -19,19 +28,21 @@ public:
     ModelSim(const ModelSim&) = delete;
     ModelSim& operator=(const ModelSim&) = delete;
 
-    void set_x0(const std::vector<double>& state);
+    void set_x0(const Vector& state);
     void set_dt(double dt);
-    const std::vector<double>& step(const std::vector<double>& control);
-    const std::vector<double>& state() const noexcept { return x_curr_; }
+    const Vector& step(const Vector& control);
+    const Vector& state() const noexcept { return x_curr_; }
 
 private:
+    static Vector make_vector(std::size_t size, double value = 0.0);
+
     {{model_name | lower}}_sim_solver_capsule* acados_sim_capsule_ = nullptr;
     int status_ = 0;
     sim_config* sim_config_ = nullptr;
     void* sim_dims_ = nullptr;
     sim_in* sim_in_ = nullptr;
     sim_out* sim_out_ = nullptr;
-    std::vector<double> x_curr_ = std::vector<double>(nx, 0.0);
-    std::vector<double> u_curr_ = std::vector<double>(nu, 0.0);
+    Vector x_curr_ = make_vector(nx);
+    Vector u_curr_ = make_vector(nu);
     double dt_ = 0.001;
 };

@@ -4,6 +4,9 @@
 // pybind11
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+{% if vector_type == "eigen" %}
+#include <pybind11/eigen.h>
+{% endif %}
 
 #include "model_sim.hh"
 

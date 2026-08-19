@@ -4,9 +4,19 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <initializer_list>
 #include "model_ocp.hh"
 #include "model_sim.hh"
 
+using Vector = ModelOcp::Vector;
+using VectorArray = ModelOcp::VectorArray;
+
+Vector make_vector(std::initializer_list<double> values) {
+    Vector result(values.size());
+    std::size_t index = 0;
+    for (double value : values) result[index++] = value;
+    return result;
+}
 
 int main(){
 
@@ -14,27 +24,25 @@ int main(){
     ModelSim sim;
     std::ofstream log_file("simulation_log.csv");
 
-    std::vector<double> x0 = {0.0, 0.0, 0.0,
+    Vector x0 = make_vector({0.0, 0.0, 0.0,
                              0.0, 0.0, 0.0,
-                            1.0, 0.0, 0.0, 0.0,
-                            0.0, 0.0, 0.0
-                        };
+                             1.0, 0.0, 0.0, 0.0,
+                             0.0, 0.0, 0.0});
 
-    std::vector<double> u0 = {0.0, 0.0, 0.0, 0.0};
-    std::vector<double> xdes = {5.0, 5.0, 5.0,
-                             0.0, 0.0, 0.0,
-                            1.0, 0.0, 0.0, 0.0,
-                            0.0, 0.0, 0.0
-                        };
-    std::vector<double> u_hover = {9.81, 0.0, 0.0, 0.0};
+    Vector u0 = make_vector({0.0, 0.0, 0.0, 0.0});
+    Vector xdes = make_vector({5.0, 5.0, 5.0,
+                               0.0, 0.0, 0.0,
+                               1.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0});
+    Vector u_hover = make_vector({9.81, 0.0, 0.0, 0.0});
     double tf = 5.0; // time horizon in seconds
     double dt = 1e-3;
 
     // set initial state and dt for sim
     sim.set_x0(x0);
     sim.set_dt(dt);
-    std::vector<std::vector<double>> xrefs(ocp.horizon() + 1, xdes);
-    std::vector<std::vector<double>> urefs(ocp.horizon(), u_hover);
+    VectorArray xrefs(ocp.horizon() + 1, xdes);
+    VectorArray urefs(ocp.horizon(), u_hover);
     ocp.initialize_guess(x0, u_hover);
     // Log time, state, input, and desired state in CSV format.
     log_file << "time,x,y,z,vx,vy,vz,qw,qx,qy,qz,wx,wy,wz,";
@@ -42,16 +50,16 @@ int main(){
         log_file << "u" << i << ",";
     }
     log_file << "x_des,y_des,z_des,vx_des,vy_des,vz_des,qw_des,qx_des,qy_des,qz_des,wx_des,wy_des,wz_des\n";
-    auto log_state = [&log_file](double time, const std::vector<double>& x, const std::vector<double>& xdes, const std::vector<double>& u) {
+    auto log_state = [&log_file](double time, const Vector& x, const Vector& xdes, const Vector& u) {
         log_file << time;
-        for (const auto& xi : x) {
-            log_file << "," << xi;
+        for (std::size_t index = 0; index < x.size(); ++index) {
+            log_file << "," << x[index];
         }
-        for (const auto& ui : u) {
-            log_file << "," << ui;
+        for (std::size_t index = 0; index < u.size(); ++index) {
+            log_file << "," << u[index];
         }
-        for (const auto& xdi : xdes) {
-            log_file << "," << xdi;
+        for (std::size_t index = 0; index < xdes.size(); ++index) {
+            log_file << "," << xdes[index];
         }
         log_file << '\n';
     };
@@ -61,7 +69,7 @@ int main(){
         // solve OCP to get optimal control
         // Sets the measured stage-0 state, applies the complete reference
         // horizon, and shifts the previous solution as the warm start.
-        const std::vector<double>& u_opt = ocp.solve(x0, xrefs, urefs);
+        const Vector& u_opt = ocp.solve(x0, xrefs, urefs);
         x0 = sim.step(u_opt);
         double current_time = (iter + 1) * dt;
         log_state(current_time, x0, xdes, u_opt);

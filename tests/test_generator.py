@@ -41,6 +41,8 @@ class GeneratorTests(unittest.TestCase):
             self.assertIn("test_model_acados_solve", implementation)
             self.assertNotIn("quadrotor_acados_solve", implementation)
             self.assertIn("TEST_MODEL_NY0", header)
+            self.assertIn("using Vector = std::vector<double>;", header)
+            self.assertNotIn("#include <Eigen/Core>", header)
             cmake_project = (output / "CMakeLists.txt").read_text(encoding="utf-8")
             acados_project = (output / "acados_generated.cmake").read_text(
                 encoding="utf-8"
@@ -48,7 +50,51 @@ class GeneratorTests(unittest.TestCase):
             self.assertIn(
                 "add_library(AcadosCpp::ocp ALIAS test_model_ocp)", cmake_project
             )
+            self.assertNotIn("find_package(Eigen3", cmake_project)
             self.assertIn("/* CMakeLists.txt */", acados_project)
+
+    def test_eigen_vector_type_updates_cpp_python_and_cmake(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self.make_export(root)
+            output = root / "output"
+
+            generate_code(
+                "test_model",
+                str(source),
+                str(output),
+                build_generated=False,
+                vector_type="eigen",
+            )
+
+            ocp_header = (output / "model_ocp.hh").read_text(encoding="utf-8")
+            sim_header = (output / "model_sim.hh").read_text(encoding="utf-8")
+            python_binding = (output / "model_ocp_py.cc").read_text(
+                encoding="utf-8"
+            )
+            cmake_project = (output / "CMakeLists.txt").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("#include <Eigen/Core>", ocp_header)
+            self.assertIn("using Vector = Eigen::VectorXd;", ocp_header)
+            self.assertIn("using Vector = Eigen::VectorXd;", sim_header)
+            self.assertIn("#include <pybind11/eigen.h>", python_binding)
+            self.assertIn("find_package(Eigen3 REQUIRED)", cmake_project)
+            self.assertIn("PUBLIC Eigen3::Eigen", cmake_project)
+
+    def test_rejects_unknown_vector_type(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self.make_export(root)
+
+            with self.assertRaisesRegex(ValueError, "vector_type"):
+                generate_code(
+                    "test_model",
+                    str(source),
+                    str(root / "output"),
+                    build_generated=False,
+                    vector_type="other",
+                )
 
     def test_render_only_does_not_copy_a_cmake_build_tree(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -6,6 +6,16 @@
 #include <stdexcept>
 #include <string>
 
+using Vector = ModelSim::Vector;
+
+Vector ModelSim::make_vector(std::size_t size, double value) {
+{% if vector_type == "eigen" %}
+    return Vector::Constant(static_cast<Eigen::Index>(size), value);
+{% else %}
+    return Vector(size, value);
+{% endif %}
+}
+
 ModelSim::ModelSim() {
     acados_sim_capsule_ = {{model_name | lower}}_acados_sim_solver_create_capsule();
     if (acados_sim_capsule_ == nullptr) {
@@ -24,14 +34,14 @@ ModelSim::ModelSim() {
     sim_dims_ = {{model_name | lower}}_acados_get_sim_dims(acados_sim_capsule_);
 }
 
-void ModelSim::set_x0(const std::vector<double>& state) {
+void ModelSim::set_x0(const Vector& state) {
     if (state.size() != nx) {
         throw std::invalid_argument("state must contain " + std::to_string(nx) + " elements");
     }
     x_curr_ = state;
 }
 
-const std::vector<double>& ModelSim::step(const std::vector<double>& control) {
+const Vector& ModelSim::step(const Vector& control) {
     if (control.size() != nu) {
         throw std::invalid_argument("control must contain " + std::to_string(nu) + " elements");
     }

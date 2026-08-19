@@ -6,6 +6,9 @@ cmake_minimum_required(VERSION 3.18)
 project({{ model_name }}_acados_cpp LANGUAGES C CXX)
 
 option(ACADOS_CPP_BUILD_PYTHON "Build the pybind11 modules" OFF)
+{% if vector_type == "eigen" %}
+find_package(Eigen3 REQUIRED)
+{% endif %}
 
 # Prefer the current installation without requiring downstream projects to
 # repeat the include and library paths embedded in an acados export.
@@ -33,6 +36,9 @@ function(acados_cpp_configure_target target_name)
         ${ACADOS_INCLUDE_PATHS}
         $<INSTALL_INTERFACE:include>)
     target_link_directories(${target_name} PUBLIC "${ACADOS_LIB_PATH}")
+{% if vector_type == "eigen" %}
+    target_link_libraries(${target_name} PUBLIC Eigen3::Eigen)
+{% endif %}
     target_link_libraries(${target_name} PRIVATE ${_acados_solver_target})
     set_target_properties(${target_name} PROPERTIES
         BUILD_RPATH "${ACADOS_LIB_PATH}"

@@ -6,6 +6,9 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+{% if vector_type == "eigen" %}
+#include <Eigen/Core>
+{% endif %}
 
 #include "acados_c/ocp_nlp_interface.h"
 #include "acados_solver_{{model_name | lower}}.h"
@@ -20,6 +23,13 @@
  */
 class ModelOcp {
 public:
+{% if vector_type == "eigen" %}
+    using Vector = Eigen::VectorXd;
+{% else %}
+    using Vector = std::vector<double>;
+{% endif %}
+    using VectorArray = std::vector<Vector>;
+
     static constexpr int nx = {{model_name | upper}}_NX;
     static constexpr int nu = {{model_name | upper}}_NU;
     static constexpr int np = {{model_name | upper}}_NP;
@@ -40,69 +50,63 @@ public:
     int horizon() const noexcept { return N_; }
 
     /** Fix the stage-0 constrained state components to the measurement. */
-    void set_x0(const std::vector<double>& x0);
+    void set_x0(const Vector& x0);
 
     /** Set one cost reference. stage is in [0, N], including the terminal node. */
-    void set_yref(int stage, const std::vector<double>& yref);
-    void set_yref_trajectory(const std::vector<std::vector<double>>& yrefs);
+    void set_yref(int stage, const Vector& yref);
+    void set_yref_trajectory(const VectorArray& yrefs);
 
     /**
      * Convenience reference setters for costs laid out as y=[x,u], y_e=x.
      * The two-argument overload applies a constant setpoint over the horizon.
      */
-    void set_reference(const std::vector<double>& xref,
-                       const std::vector<double>& uref);
-    void set_reference_trajectory(
-        const std::vector<std::vector<double>>& xrefs,
-        const std::vector<std::vector<double>>& urefs);
+    void set_reference(const Vector& xref, const Vector& uref);
+    void set_reference_trajectory(const VectorArray& xrefs,
+                                  const VectorArray& urefs);
 
     /** Set model parameters for one stage or all N+1 stages. */
-    void set_parameters(int stage, const std::vector<double>& parameters);
-    void set_parameter_trajectory(
-        const std::vector<std::vector<double>>& parameters);
-    void set_global_parameters(const std::vector<double>& parameters);
+    void set_parameters(int stage, const Vector& parameters);
+    void set_parameter_trajectory(const VectorArray& parameters);
+    void set_global_parameters(const Vector& parameters);
 
     /** Set 0=full RTI step, 1=preparation, or 2=feedback (SQP_RTI solvers). */
     void set_rti_phase(int phase);
 
     /** Set initial guesses without changing constraints or references. */
-    void set_state_guess(int stage, const std::vector<double>& state);
-    void set_control_guess(int stage, const std::vector<double>& control);
-    void set_state_guess(const std::vector<std::vector<double>>& states);
-    void set_control_guess(const std::vector<std::vector<double>>& controls);
-    void initialize_guess(const std::vector<double>& state,
-                          const std::vector<double>& control);
+    void set_state_guess(int stage, const Vector& state);
+    void set_control_guess(int stage, const Vector& control);
+    void set_state_guess(const VectorArray& states);
+    void set_control_guess(const VectorArray& controls);
+    void initialize_guess(const Vector& state, const Vector& control);
 
     /** Backward-compatible names: initialize every state/control node. */
-    void set_xinit(const std::vector<double>& state);
-    void set_uinit(const std::vector<double>& control);
-    void set_yref(const std::vector<double>& xref,
-                  const std::vector<double>& uref);
+    void set_xinit(const Vector& state);
+    void set_uinit(const Vector& control);
+    void set_yref(const Vector& xref, const Vector& uref);
 
     /** Shift the most recently solved trajectory by one shooting interval. */
     void shift_warm_start();
 
     /** Solve and return u at stage 0. Throws when acados reports failure. */
-    const std::vector<double>& solve();
-    const std::vector<double>& solve(const std::vector<double>& x0,
-                                     const std::vector<double>& xref);
-    const std::vector<double>& solve(
-        const std::vector<double>& x0,
-        const std::vector<std::vector<double>>& xrefs,
-        const std::vector<std::vector<double>>& urefs);
+    const Vector& solve();
+    const Vector& solve(const Vector& x0, const Vector& xref);
+    const Vector& solve(const Vector& x0,
+                        const VectorArray& xrefs,
+                        const VectorArray& urefs);
 
-    const std::vector<double>& state_trajectory() const noexcept { return xtraj_; }
-    const std::vector<double>& control_trajectory() const noexcept { return utraj_; }
-    const std::vector<double>& control() const noexcept { return u_opt_; }
+    const Vector& state_trajectory() const noexcept { return xtraj_; }
+    const Vector& control_trajectory() const noexcept { return utraj_; }
+    const Vector& control() const noexcept { return u_opt_; }
     int status() const noexcept { return status_; }
     int sqp_iterations() const noexcept { return sqp_iter_; }
     double solve_time() const noexcept { return elapsed_time_; }
     double kkt_norm_inf() const noexcept { return kkt_norm_inf_; }
 
 private:
-    static void require_size(const std::vector<double>& value,
+    static void require_size(const Vector& value,
                              std::size_t expected,
                              const char* name);
+    static Vector make_vector(std::size_t size, double value = 0.0);
     void require_stage(int stage, bool terminal_allowed) const;
     std::size_t reference_size(int stage) const;
     void cache_solution();
@@ -123,7 +127,7 @@ private:
     int sqp_iter_ = 0;
     bool has_solution_ = false;
 
-    std::vector<double> xtraj_ = std::vector<double>(nx * (N_ + 1), 0.0);
-    std::vector<double> utraj_ = std::vector<double>(nu * N_, 0.0);
-    std::vector<double> u_opt_ = std::vector<double>(nu, 0.0);
+    Vector xtraj_ = make_vector(nx * (N_ + 1));
+    Vector utraj_ = make_vector(nu * N_);
+    Vector u_opt_ = make_vector(nu);
 };

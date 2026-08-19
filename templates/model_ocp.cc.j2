@@ -14,6 +14,17 @@ std::runtime_error acados_error(const char* operation, int status) {
 }
 }  // namespace
 
+using Vector = ModelOcp::Vector;
+using VectorArray = ModelOcp::VectorArray;
+
+Vector ModelOcp::make_vector(std::size_t size, double value) {
+{% if vector_type == "eigen" %}
+    return Vector::Constant(static_cast<Eigen::Index>(size), value);
+{% else %}
+    return Vector(size, value);
+{% endif %}
+}
+
 ModelOcp::ModelOcp() {
     acados_ocp_capsule_ = {{model_name | lower}}_acados_create_capsule();
     if (acados_ocp_capsule_ == nullptr) {
@@ -35,7 +46,7 @@ ModelOcp::ModelOcp() {
     nlp_opts_ = {{model_name | lower}}_acados_get_nlp_opts(acados_ocp_capsule_);
 }
 
-void ModelOcp::require_size(const std::vector<double>& value,
+void ModelOcp::require_size(const Vector& value,
                             std::size_t expected,
                             const char* name) {
     if (value.size() != expected) {
@@ -60,7 +71,7 @@ std::size_t ModelOcp::reference_size(int stage) const {
     return ny;
 }
 
-void ModelOcp::set_x0(const std::vector<double>& x0) {
+void ModelOcp::set_x0(const Vector& x0) {
     require_size(x0, nbx0, "x0");
     ocp_nlp_constraints_model_set(
         nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "lbx",
@@ -70,33 +81,31 @@ void ModelOcp::set_x0(const std::vector<double>& x0) {
         const_cast<double*>(x0.data()));
 }
 
-void ModelOcp::set_yref(int stage, const std::vector<double>& yref) {
+void ModelOcp::set_yref(int stage, const Vector& yref) {
     require_size(yref, reference_size(stage), "yref");
     ocp_nlp_cost_model_set(
         nlp_config_, nlp_dims_, nlp_in_, stage, "yref",
         const_cast<double*>(yref.data()));
 }
 
-void ModelOcp::set_yref_trajectory(
-    const std::vector<std::vector<double>>& yrefs) {
+void ModelOcp::set_yref_trajectory(const VectorArray& yrefs) {
     if (yrefs.size() != static_cast<std::size_t>(N_ + 1)) {
         throw std::invalid_argument("yrefs must contain N+1 stage vectors");
     }
     for (int stage = 0; stage <= N_; ++stage) set_yref(stage, yrefs[stage]);
 }
 
-void ModelOcp::set_reference(const std::vector<double>& xref,
-                             const std::vector<double>& uref) {
+void ModelOcp::set_reference(const Vector& xref, const Vector& uref) {
     require_size(xref, nx, "xref");
     require_size(uref, nu, "uref");
-    std::vector<std::vector<double>> xrefs(N_ + 1, xref);
-    std::vector<std::vector<double>> urefs(N_, uref);
+    VectorArray xrefs(N_ + 1, xref);
+    VectorArray urefs(N_, uref);
     set_reference_trajectory(xrefs, urefs);
 }
 
 void ModelOcp::set_reference_trajectory(
-    const std::vector<std::vector<double>>& xrefs,
-    const std::vector<std::vector<double>>& urefs) {
+    const VectorArray& xrefs,
+    const VectorArray& urefs) {
     if (ny0 != nx + nu || ny != nx + nu || ny_terminal != nx) {
         throw std::logic_error(
             "state/control references require stage costs y=[x,u] and terminal cost y_e=x; "
@@ -109,18 +118,20 @@ void ModelOcp::set_reference_trajectory(
     for (int stage = 0; stage < N_; ++stage) {
         require_size(xrefs[stage], nx, "state reference");
         require_size(urefs[stage], nu, "control reference");
-        std::vector<double> yref;
-        yref.reserve(nx + nu);
-        yref.insert(yref.end(), xrefs[stage].begin(), xrefs[stage].end());
-        yref.insert(yref.end(), urefs[stage].begin(), urefs[stage].end());
+        Vector yref = make_vector(nx + nu);
+        for (int index = 0; index < nx; ++index) {
+            yref[index] = xrefs[stage][index];
+        }
+        for (int index = 0; index < nu; ++index) {
+            yref[nx + index] = urefs[stage][index];
+        }
         set_yref(stage, yref);
     }
     require_size(xrefs[N_], nx, "terminal state reference");
     set_yref(N_, xrefs[N_]);
 }
 
-void ModelOcp::set_parameters(int stage,
-                              const std::vector<double>& parameters) {
+void ModelOcp::set_parameters(int stage, const Vector& parameters) {
     require_stage(stage, true);
     require_size(parameters, np, "parameters");
     if (np > 0) {
@@ -131,8 +142,7 @@ void ModelOcp::set_parameters(int stage,
     }
 }
 
-void ModelOcp::set_parameter_trajectory(
-    const std::vector<std::vector<double>>& parameters) {
+void ModelOcp::set_parameter_trajectory(const VectorArray& parameters) {
     if (parameters.size() != static_cast<std::size_t>(N_ + 1)) {
         throw std::invalid_argument("parameters must contain N+1 stage vectors");
     }
@@ -141,8 +151,7 @@ void ModelOcp::set_parameter_trajectory(
     }
 }
 
-void ModelOcp::set_global_parameters(
-    const std::vector<double>& parameters) {
+void ModelOcp::set_global_parameters(const Vector& parameters) {
     require_size(parameters, np_global, "global parameters");
     status_ = {{model_name | lower}}_acados_set_p_global_and_precompute_dependencies(
         acados_ocp_capsule_, const_cast<double*>(parameters.data()), np_global);
@@ -156,7 +165,7 @@ void ModelOcp::set_rti_phase(int phase) {
     ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "rti_phase", &phase);
 }
 
-void ModelOcp::set_state_guess(int stage, const std::vector<double>& state) {
+void ModelOcp::set_state_guess(int stage, const Vector& state) {
     require_stage(stage, true);
     require_size(state, nx, "state guess");
     ocp_nlp_out_set(
@@ -165,7 +174,7 @@ void ModelOcp::set_state_guess(int stage, const std::vector<double>& state) {
 }
 
 void ModelOcp::set_control_guess(int stage,
-                                 const std::vector<double>& control) {
+                                 const Vector& control) {
     require_stage(stage, false);
     require_size(control, nu, "control guess");
     ocp_nlp_out_set(
@@ -173,24 +182,21 @@ void ModelOcp::set_control_guess(int stage,
         const_cast<double*>(control.data()));
 }
 
-void ModelOcp::set_state_guess(
-    const std::vector<std::vector<double>>& states) {
+void ModelOcp::set_state_guess(const VectorArray& states) {
     if (states.size() != static_cast<std::size_t>(N_ + 1)) {
         throw std::invalid_argument("state guess must contain N+1 nodes");
     }
     for (int stage = 0; stage <= N_; ++stage) set_state_guess(stage, states[stage]);
 }
 
-void ModelOcp::set_control_guess(
-    const std::vector<std::vector<double>>& controls) {
+void ModelOcp::set_control_guess(const VectorArray& controls) {
     if (controls.size() != static_cast<std::size_t>(N_)) {
         throw std::invalid_argument("control guess must contain N nodes");
     }
     for (int stage = 0; stage < N_; ++stage) set_control_guess(stage, controls[stage]);
 }
 
-void ModelOcp::initialize_guess(const std::vector<double>& state,
-                                const std::vector<double>& control) {
+void ModelOcp::initialize_guess(const Vector& state, const Vector& control) {
     require_size(state, nx, "state guess");
     require_size(control, nu, "control guess");
     for (int stage = 0; stage <= N_; ++stage) set_state_guess(stage, state);
@@ -198,20 +204,19 @@ void ModelOcp::initialize_guess(const std::vector<double>& state,
     has_solution_ = false;
 }
 
-void ModelOcp::set_xinit(const std::vector<double>& state) {
+void ModelOcp::set_xinit(const Vector& state) {
     require_size(state, nx, "state guess");
     for (int stage = 0; stage <= N_; ++stage) set_state_guess(stage, state);
     has_solution_ = false;
 }
 
-void ModelOcp::set_uinit(const std::vector<double>& control) {
+void ModelOcp::set_uinit(const Vector& control) {
     require_size(control, nu, "control guess");
     for (int stage = 0; stage < N_; ++stage) set_control_guess(stage, control);
     has_solution_ = false;
 }
 
-void ModelOcp::set_yref(const std::vector<double>& xref,
-                        const std::vector<double>& uref) {
+void ModelOcp::set_yref(const Vector& xref, const Vector& uref) {
     set_reference(xref, uref);
 }
 
@@ -240,11 +245,13 @@ void ModelOcp::cache_solution() {
         ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, stage,
                         "u", utraj_.data() + stage * nu);
     }
-    std::copy_n(utraj_.begin(), nu, u_opt_.begin());
+    for (int index = 0; index < nu; ++index) {
+        u_opt_[index] = utraj_[index];
+    }
     has_solution_ = true;
 }
 
-const std::vector<double>& ModelOcp::solve() {
+const Vector& ModelOcp::solve() {
     status_ = {{model_name | lower}}_acados_solve(acados_ocp_capsule_);
     ocp_nlp_get(nlp_solver_, "time_tot", &elapsed_time_);
     ocp_nlp_get(nlp_solver_, "sqp_iter", &sqp_iter_);
@@ -257,20 +264,18 @@ const std::vector<double>& ModelOcp::solve() {
     return u_opt_;
 }
 
-const std::vector<double>& ModelOcp::solve(
-    const std::vector<double>& x0,
-    const std::vector<double>& xref) {
-    std::vector<double> zero_control(nu, 0.0);
+const Vector& ModelOcp::solve(const Vector& x0, const Vector& xref) {
+    Vector zero_control = make_vector(nu);
     shift_warm_start();
     set_x0(x0);
     set_reference(xref, zero_control);
     return solve();
 }
 
-const std::vector<double>& ModelOcp::solve(
-    const std::vector<double>& x0,
-    const std::vector<std::vector<double>>& xrefs,
-    const std::vector<std::vector<double>>& urefs) {
+const Vector& ModelOcp::solve(
+    const Vector& x0,
+    const VectorArray& xrefs,
+    const VectorArray& urefs) {
     shift_warm_start();
     set_x0(x0);
     set_reference_trajectory(xrefs, urefs);
