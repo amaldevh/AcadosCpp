@@ -10,7 +10,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-
 STATE_GROUPS = (
     ("Position", ("x", "y", "z")),
     ("Velocity", ("vx", "vy", "vz")),

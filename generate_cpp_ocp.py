@@ -15,7 +15,6 @@ from typing import Union
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-
 TEMPLATES = (
     "model_ocp.cc.j2",
     "model_ocp.hh.j2",
